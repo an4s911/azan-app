@@ -2,16 +2,26 @@
 
 import requests
 import csv
+import os
 
 from datetime import datetime, timedelta
 
+os.chdir('/home/anas/.config/i3/scripts')
+
 PRAYERS = ['Fajr', 'Fajr Iqamah', 'Dhuhr', 'Dhuhr Iqamah', 'Asr', 'Asr Iqamah', 'Maghrib', 'Maghrib Iqamah', 'Isha', 'Isha Iqamah']
+IQAMAH_TIMINGS = {
+    'Fajr': 20,
+    'Dhuhr': 20,
+    'Asr': 20,
+    'Maghrib': 10,
+    'Isha': 20
+}
 
 try:
     open('prayer_times.csv', 'r').close()
 except FileNotFoundError:
     with open('prayer_times.csv', 'w') as prayer_times_file:
-        prayer_times_file.write('Date,' + ','.join(PRAYERS) + '\n')
+        prayer_times_file.write('Date,' + ','.join(PRAYERS[::2]) + '\n')
 
 
 def get_time_for_prayer(prayer: str, request):
@@ -36,7 +46,7 @@ def get_and_store_prayer_times():
     request = requests.get('https://salah.com')
 
     prayer_times = {}
-    for prayer in PRAYERS:
+    for prayer in PRAYERS[::2]:
         prayer_times[prayer] = get_time_for_prayer(prayer, request)
 
     with open('prayer_times.csv', 'a') as prayer_times_file:
@@ -62,9 +72,7 @@ def get_prayer_times():
         for prayer in PRAYERS[::2]:
             prayer_times[prayer] = datetime.strptime(
                 f"{last_line['Date']} {last_line[prayer]}", '%Y-%m-%d %I:%M%p')
-            prayer_times[f"{prayer} Iqamah"] = prayer_times[prayer] + timedelta(minutes=20)
-
-        isha_time = prayer_times['Isha']
+            prayer_times[f"{prayer} Iqamah"] = prayer_times[prayer] + timedelta(minutes=IQAMAH_TIMINGS[prayer])
 
         last_prayer_date = datetime.strptime(
             last_line['Date'], '%Y-%m-%d').date()
