@@ -27,6 +27,14 @@ except FileNotFoundError:
 def get_time_for_prayer(prayer: str, request):
     lines = request.iter_lines()
 
+    additonal_minutes = {
+        'Fajr': 3,
+        'Dhuhr': 0,
+        'Asr': 1,
+        'Maghrib': 3,
+        'Isha': 3
+    }
+
     for i in lines:
         if prayer.capitalize() in i.decode('utf-8'):
             lines.__next__()
@@ -38,8 +46,11 @@ def get_time_for_prayer(prayer: str, request):
             # today = datetime.now()
             # prayer_time += f" {today.date()}"
 
-            # return datetime.strptime(prayer_time, '%I:%M%p %Y-%m-%d')
-            return prayer_time
+            # return datetime.strptime(prayer_time, '%I:%M%p')
+            return (datetime.strptime(prayer_time, '%I:%M%p') \
+                    + timedelta(
+                        minutes=additonal_minutes[prayer]
+                    )).strftime('%I:%M%p')
 
 
 def get_and_store_prayer_times():
