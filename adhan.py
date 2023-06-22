@@ -1,18 +1,17 @@
-#!/usr/bin/env python
-
 import requests
 import csv
 import os
 
 from datetime import datetime, timedelta
 
-os.chdir('/home/anas/.config/i3/scripts')
+# Change directory to this script's directory
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 PRAYERS = ['Fajr', 'Fajr Iqamah', 'Dhuhr', 'Dhuhr Iqamah', 'Asr', 'Asr Iqamah', 'Maghrib', 'Maghrib Iqamah', 'Isha', 'Isha Iqamah']
 IQAMAH_TIMINGS = {
-    'Fajr': 20,
+    'Fajr': 25,
     'Dhuhr': 20,
-    'Asr': 20,
+    'Asr': 25,
     'Maghrib': 10,
     'Isha': 20
 }
@@ -28,11 +27,11 @@ def get_time_for_prayer(prayer: str, request):
     lines = request.iter_lines()
 
     additonal_minutes = {
-        'Fajr': 3,
+        'Fajr': 0,
         'Dhuhr': 0,
-        'Asr': 1,
-        'Maghrib': 3,
-        'Isha': 3
+        'Asr': 0,
+        'Maghrib': 0,
+        'Isha': 0
     }
 
     for i in lines:
@@ -54,15 +53,18 @@ def get_time_for_prayer(prayer: str, request):
 
 
 def get_and_store_prayer_times():
-    request = requests.get('https://salah.com')
+    try:
+        request = requests.get('https://salah.com')
+    except:
+        print("No network!")
+    else:
+        prayer_times = {}
+        for prayer in PRAYERS[::2]:
+            prayer_times[prayer] = get_time_for_prayer(prayer, request)
 
-    prayer_times = {}
-    for prayer in PRAYERS[::2]:
-        prayer_times[prayer] = get_time_for_prayer(prayer, request)
-
-    with open('prayer_times.csv', 'a') as prayer_times_file:
-        csv_writer = csv.writer(prayer_times_file)
-        csv_writer.writerow([datetime.today().date(), *prayer_times.values()])
+        with open('prayer_times.csv', 'a') as prayer_times_file:
+            csv_writer = csv.writer(prayer_times_file)
+            csv_writer.writerow([datetime.today().date(), *prayer_times.values()])
 
 
 def get_prayer_times():
