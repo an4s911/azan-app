@@ -9,11 +9,11 @@ os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 PRAYERS = ['Fajr', 'Fajr Iqamah', 'Dhuhr', 'Dhuhr Iqamah', 'Asr', 'Asr Iqamah', 'Maghrib', 'Maghrib Iqamah', 'Isha', 'Isha Iqamah']
 IQAMAH_TIMINGS = {
-    'Fajr': 25,
-    'Dhuhr': 20,
-    'Asr': 25,
-    'Maghrib': 10,
-    'Isha': 20
+    'Fajr': 0,
+    'Dhuhr': 0,
+    'Asr': 0,
+    'Maghrib': 0,
+    'Isha': 0
 }
 
 try:
@@ -110,9 +110,9 @@ else:
 
 
 if __name__ == '__main__':
-    difference_in_seconds = (
-        prayer_times[next_prayer] - datetime.now()).seconds
-    print(next_prayer, "in", timedelta(seconds=difference_in_seconds))
+    difference_in_minutes = int(((prayer_times[next_prayer] - datetime.now()).seconds)/60)
+    # print(int(difference_in_seconds/60))
+    print(next_prayer, "in", difference_in_minutes, "mins")
 
 # # while True:
 # #     difference_in_seconds = (prayer_times[next_prayer] - datetime.now()).seconds
