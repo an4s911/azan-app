@@ -39,7 +39,7 @@ def get_time_for_prayer(prayer: str, request):
             time_span_elem = lines.__next__().decode("utf-8").split()[0]
             period = time_span_elem[-2:]
             time_span_elem = time_span_elem[:-2]
-            prayer_time = time_span_elem[6: time_span_elem.find("</")] + period
+            prayer_time = time_span_elem[6 : time_span_elem.find("</")] + period
 
             # today = datetime.now()
             # prayer_time += f" {today.date()}"
@@ -54,7 +54,7 @@ def get_time_for_prayer(prayer: str, request):
 def get_and_store_prayer_times():
     try:
         request = requests.get("https://salah.com")
-    except:
+    except Exception:
         print("No network!")
     else:
         prayer_times = {}
