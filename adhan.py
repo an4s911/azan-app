@@ -21,10 +21,12 @@ PRAYERS = [
 ]
 IQAMAH_TIMINGS = {"Fajr": 0, "Dhuhr": 0, "Asr": 0, "Maghrib": 0, "Isha": 0}
 
+PRAYER_TIMES_FILE_PATH = "/tmp/prayer_times.csv"
+
 try:
-    open("prayer_times.csv", "r").close()
+    open(PRAYER_TIMES_FILE_PATH, "r").close()
 except FileNotFoundError:
-    with open("prayer_times.csv", "w") as prayer_times_file:
+    with open(PRAYER_TIMES_FILE_PATH, "w") as prayer_times_file:
         prayer_times_file.write("Date," + ",".join(PRAYERS[::2]) + "\n")
 
 
@@ -61,13 +63,13 @@ def get_and_store_prayer_times():
         for prayer in PRAYERS[::2]:
             prayer_times[prayer] = get_time_for_prayer(prayer, request)
 
-        with open("prayer_times.csv", "a") as prayer_times_file:
+        with open(PRAYER_TIMES_FILE_PATH, "a") as prayer_times_file:
             csv_writer = csv.writer(prayer_times_file)
             csv_writer.writerow([datetime.today().date(), *prayer_times.values()])
 
 
 def get_prayer_times():
-    with open("prayer_times.csv", "r") as prayer_times_file:
+    with open(PRAYER_TIMES_FILE_PATH, "r") as prayer_times_file:
         csv_reader = csv.DictReader(prayer_times_file)
 
         for line in csv_reader:
