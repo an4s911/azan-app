@@ -100,6 +100,11 @@ def get_prayer_times():
 
 prayer_times = get_prayer_times()
 
+if not prayer_times:
+    get_and_store_prayer_times()
+
+prayer_times = get_prayer_times()
+
 for i in range(len(PRAYERS) - 1):
     p = prayer_times[PRAYERS[i]]
     n = prayer_times[PRAYERS[i + 1]]
