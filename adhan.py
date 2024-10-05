@@ -1,11 +1,8 @@
 import csv
-import os
 from datetime import datetime, timedelta
 
 import requests
 
-# Change directory to this script's directory
-os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 PRAYERS = [
     "Fajr",
@@ -43,10 +40,6 @@ def get_time_for_prayer(prayer: str, request):
             time_span_elem = time_span_elem[:-2]
             prayer_time = time_span_elem[6 : time_span_elem.find("</")] + period
 
-            # today = datetime.now()
-            # prayer_time += f" {today.date()}"
-
-            # return datetime.strptime(prayer_time, '%I:%M%p')
             return (
                 datetime.strptime(prayer_time, "%I:%M%p")
                 + timedelta(minutes=additonal_minutes[prayer])
@@ -120,13 +113,4 @@ if __name__ == "__main__":
     difference_in_minutes = int(
         ((prayer_times[next_prayer] - datetime.now()).seconds) / 60
     )
-    # print(int(difference_in_seconds/60))
     print(next_prayer, "in", difference_in_minutes, "mins")
-
-# # while True:
-# #     difference_in_seconds = (prayer_times[next_prayer] - datetime.now()).seconds
-# #     print(next_prayer, "in",timedelta(seconds=difference_in_seconds))
-# #     sleep(3)
-
-# # pprint(prayer_times, sort_dicts=False)
-# # print(prayer_times)
