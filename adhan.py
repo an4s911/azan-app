@@ -49,19 +49,7 @@ def get_url(tomorrow=False, **kwargs):
     # Format kwargs to add to url
     for key, value in kwargs.items():
         if key == "tune":
-            if isinstance(value, dict):
-                tune_order = [
-                    "Imsak",
-                    "Fajr",
-                    "Sunrise",
-                    "Dhuhr",
-                    "Asr",
-                    "Sunset",
-                    "Maghrib",
-                    "Isha",
-                    "Midnight",
-                ]
-                value = ",".join(str(value.get(k, 0)) for k in tune_order)
+            value = "0,0,0,0,0,0,0,0,0"
 
         url_params.append(f"{key}={quote(str(value), safe='')}")
 
@@ -70,14 +58,7 @@ def get_url(tomorrow=False, **kwargs):
 
 def get_prayer_times(city_index=0):
     # For aligning prayer times to be more accurate
-    additonal_minutes = {
-        "Fajr": 0,
-        "Sunrise": 1,
-        "Dhuhr": 0,
-        "Asr": 0,
-        "Maghrib": -1,
-        "Isha": 0,
-    }
+    additional_minutes = my_cities[city_index].get("tune", {})
 
     # Ensure file exists
     if not os.path.exists(PRAYER_TIMES_FILE_PATH):
@@ -144,7 +125,7 @@ def get_prayer_times(city_index=0):
         time_str = timings[prayer].split(" ")[0]
         prayer_times[prayer] = datetime.strptime(
             f"{date_str} {time_str}", "%Y-%m-%d %H:%M"
-        ) + timedelta(minutes=additonal_minutes[prayer])
+        ) + timedelta(minutes=int(additional_minutes.get(prayer, 0)))
 
     return prayer_times, today_data["date"]["hijri"]
 
