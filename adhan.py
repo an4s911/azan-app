@@ -1,20 +1,29 @@
-import csv
+import json
 import os
-import re
+import sys
 from datetime import datetime, timedelta
+from urllib.parse import quote
 
 import requests
-from dotenv import load_dotenv
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-load_dotenv(".env")
+# Load cities from json file
+CITIES_FILE_PATH = "cities.json"
 
-city_id = os.getenv("CITY_ID")
+if not os.path.exists(CITIES_FILE_PATH):
+    print(f"Error: {CITIES_FILE_PATH} not found.")
+    exit(1)
 
-# For details on how to get this link for your city, see
-# https://support.muslimpro.com/hc/en-us/articles/202886274-How-do-I-add-Muslim-Pro-prayer-times-on-my-own-web-page
-URL = f"https://prayer-times.muslimpro.com/muslimprowidget.js?cityid={city_id}"
+with open(CITIES_FILE_PATH, "r") as f:
+    try:
+        my_cities = json.load(f)
+    except json.JSONDecodeError:
+        print(f"Error: Failed to decode {CITIES_FILE_PATH}.")
+        exit(1)
+
+API_URL = "https://api.aladhan.com/v1/timingsByCity"
+
 
 PRAYERS = [
     "Fajr",
@@ -25,111 +34,119 @@ PRAYERS = [
     "Isha",
 ]
 
-PRAYER_TIMES_FILE_PATH = "/tmp/prayer_times.csv"
-
-try:
-    open(PRAYER_TIMES_FILE_PATH, "r").close()
-except FileNotFoundError:
-    with open(PRAYER_TIMES_FILE_PATH, "w") as prayer_times_file:
-        prayer_times_file.write("Date," + ",".join(PRAYERS) + "\n")
+PRAYER_TIMES_FILE_PATH = "/tmp/prayer_times.json"
 
 
-def get_and_store_prayer_times():
-    try:
-        # Fetch the JavaScript response
-        response = requests.get(URL)
-        response.raise_for_status()
-    except Exception:
-        print("No network!")
-        return None
+# params = tomorrow: bool and **kwargs
+def get_url(tomorrow=False, **kwargs):
+    if tomorrow:
+        dateStr = (datetime.now() + timedelta(days=1)).strftime("%d-%m-%Y")
     else:
-        content = response.text
+        dateStr = datetime.now().strftime("%d-%m-%Y")
 
-        # Regex pattern to extract prayer names and times
+    url_params = []
 
-        # 24 hours format
-        # prayer_pattern = re.compile(r"<td>(.*?)</td><td>(\d{2}:\d{2})</td>")
+    # Format kwargs to add to url
+    for key, value in kwargs.items():
+        if key == "tune":
+            if isinstance(value, dict):
+                tune_order = [
+                    "Imsak",
+                    "Fajr",
+                    "Sunrise",
+                    "Dhuhr",
+                    "Asr",
+                    "Sunset",
+                    "Maghrib",
+                    "Isha",
+                    "Midnight",
+                ]
+                value = ",".join(str(value.get(k, 0)) for k in tune_order)
 
-        # 12 hours format (with AM/PM)
-        # prayer_pattern = re.compile(r"<td>(.*?)</td><td>(\d{2}:\d{2} AM)</td>")
+        url_params.append(f"{key}={quote(str(value), safe='')}")
 
-        prayer_pattern = re.compile(
-            r"<td>(.*?)</td><td>((?:0[1-9]|1[0-2]):[0-5][0-9]\s?(?:AM|PM))</td>",
-            re.IGNORECASE,
-        )
-
-        prayer_times = prayer_pattern.findall(content)
-
-        prayer_times_dict = {}
-        prayer_times_dict["Date"] = datetime.today().strftime("%Y-%m-%d")
-
-        for prayer, time in prayer_times:
-            if prayer.startswith("Isha"):
-                prayer = "Isha"
-            if prayer in PRAYERS:
-                t = time.strip()
-                # decide format based on presence of AM/PM
-                if t.upper().endswith(("AM", "PM")):
-                    fmt = "%I:%M %p"
-                else:
-                    fmt = "%H:%M"
-                # parse then re‑format to HH:MM
-                dt = datetime.strptime(t, fmt)
-                prayer_times_dict[prayer] = dt.strftime("%H:%M")
-
-        with open(PRAYER_TIMES_FILE_PATH, "a") as prayer_times_file:
-            csv_writer = csv.writer(prayer_times_file)
-            row = (
-                prayer_times_dict.values()
-            )  # In order: Date, Fajr, Sunrise, Dhuhr, Asr, Maghrib, Isha
-            csv_writer.writerow(row)
-
-        loc_pattern = re.compile(
-            r"/Prayer-times-([A-Za-z0-9\-]+)-([A-Za-z0-9\-]+)-\d+", re.IGNORECASE
-        )
-
-        loc = loc_pattern.search(content)
-        if loc:
-            city = loc.group(1).replace("-", " ")
-            country = loc.group(2).replace("-", " ")
-            print(city, country)
-
-        return prayer_times_dict
+    return f"{API_URL}/{dateStr}?{'&'.join(url_params)}"
 
 
-def get_prayer_times():
+def get_prayer_times(city_index=0):
     # For aligning prayer times to be more accurate
     additonal_minutes = {
-        "Fajr": 2,
-        "Sunrise": 0,
-        "Dhuhr": 1,
-        "Asr": 1,
-        "Maghrib": 2,
-        "Isha": 2,
+        "Fajr": 0,
+        "Sunrise": 1,
+        "Dhuhr": 0,
+        "Asr": 0,
+        "Maghrib": -1,
+        "Isha": 0,
     }
 
-    with open(PRAYER_TIMES_FILE_PATH, "r") as prayer_times_file:
-        csv_reader = csv.DictReader(prayer_times_file)
+    # Ensure file exists
+    if not os.path.exists(PRAYER_TIMES_FILE_PATH):
+        with open(PRAYER_TIMES_FILE_PATH, "w") as f:
+            json.dump([], f)
 
-        for line in csv_reader:
-            pass
-
+    with open(PRAYER_TIMES_FILE_PATH, "r") as f:
         try:
-            last_line = line
-        except UnboundLocalError:
-            last_line = get_and_store_prayer_times()
+            data = json.load(f)
+        except json.JSONDecodeError:
+            data = []
 
-        last_prayer_date = datetime.strptime(last_line["Date"], "%Y-%m-%d").date()
-        if datetime.today().date() > last_prayer_date:
-            last_line = get_and_store_prayer_times()
+    today_str_api = datetime.now().strftime("%d-%m-%Y")
 
-        prayer_times = {}
-        for prayer in PRAYERS:
-            prayer_times[prayer] = datetime.strptime(
-                f"{last_line['Date']} {last_line[prayer]}", "%Y-%m-%d %H:%M"
-            ) + timedelta(minutes=additonal_minutes[prayer])
+    today_data = None
+    for entry in data:
+        # API returns date like "01-01-2025" in data.date.gregorian.date
+        # We stored the whole 'data' object from api response
+        try:
+            if entry["date"]["gregorian"]["date"] == today_str_api:
+                today_data = entry
+                break
+        except KeyError:
+            continue
 
-        return prayer_times
+    if not today_data:
+        try:
+            url = get_url(**my_cities[city_index])
+            response = requests.get(url)
+            response.raise_for_status()
+            api_response = response.json()
+
+            if api_response["code"] == 200:
+                today_data = api_response["data"]
+                data.append(today_data)
+
+                with open(PRAYER_TIMES_FILE_PATH, "w") as f:
+                    json.dump(data, f, indent=2)
+            else:
+                print(f"API Error: {api_response['status']}")
+                return None
+
+        except Exception as e:
+            print(f"Network error or api error: {e}")
+            return None
+
+    if not today_data:
+        return None
+
+    prayer_times = {}
+    timings = today_data["timings"]
+    # Timings format is HH:MM (e.g. "06:03")
+
+    # We need a date component for datetime objects.
+    # Use today's date from system or from the entry?
+    # The existing logic used datetime.now() mostly for comparison.
+    # We'll use the date from the entry to be safe or just today's date.
+    # The script compares with datetime.now() later, so using current date is aligned.
+
+    date_str = datetime.now().strftime("%Y-%m-%d")
+
+    for prayer in PRAYERS:
+        # Use only HH:MM part if there's timezone etc, though example shows just HH:MM
+        time_str = timings[prayer].split(" ")[0]
+        prayer_times[prayer] = datetime.strptime(
+            f"{date_str} {time_str}", "%Y-%m-%d %H:%M"
+        ) + timedelta(minutes=additonal_minutes[prayer])
+
+    return prayer_times, today_data["date"]["hijri"]
 
 
 def print_string_array_in_length(string_array, length, filler="-"):
@@ -152,10 +169,14 @@ def print_string_array_in_length(string_array, length, filler="-"):
 
 
 if __name__ == "__main__":
-    prayer_times = get_prayer_times()
+    # Get city index from command line argument
+    city_index = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+    result = get_prayer_times(city_index)
 
-    if not prayer_times:
+    if not result:
         exit()
+
+    prayer_times, hijri_data = result
 
     for i in range(len(PRAYERS) - 1):
         prev = prayer_times[PRAYERS[i]]  # previous prayer time
@@ -186,3 +207,10 @@ if __name__ == "__main__":
             [f"{prayer}", f"{prayer_times[prayer].strftime('%H:%M')}"],
             13,
         )
+
+    # Print Hijri Date
+    day = hijri_data["day"]
+    month_en = hijri_data["month"]["en"]
+    month_num = str(hijri_data["month"]["number"])
+    year = hijri_data["year"]
+    print(f"\n{day} {month_en} ({month_num}) {year}")
